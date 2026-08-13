@@ -14,7 +14,15 @@ export interface OnMemberJoinDeps {
 }
 
 export async function onMemberJoin(member: GuildMember, deps: OnMemberJoinDeps): Promise<void> {
-  const storedRoleIds = getRoles(deps.db, member.id);
+  let storedRoleIds: string[] = [];
+  try {
+    storedRoleIds = getRoles(deps.db, member.id);
+  } catch (error) {
+    await logToModLog(
+      deps.modLogChannel,
+      `Failed to read stored roles for <@${member.id}> on join: ${error}`
+    );
+  }
   const currentRoleIds = [...member.roles.cache.keys()];
   const { rolesToAdd } = planJoinActions({
     storedRoleIds,
