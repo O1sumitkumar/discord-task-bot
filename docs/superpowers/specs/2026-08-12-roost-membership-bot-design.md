@@ -1,6 +1,8 @@
 # Roost — the membership bot
 
-**Status:** Design approved 2026-08-12. Not built.
+**Status:** Design approved 2026-08-12. Phase 1 built 2026-08-13
+(`docs/plans/2026-08-13-roost-phase1-implementation.md`) — not yet deployed;
+manual migration steps in "Migration" below are still outstanding.
 **Owner:** Waskar
 **Repo:** `philaconvalley/discord-task-bot`
 **Supersedes nothing.** Related: `philaConValley/docs/superpowers/specs/2026-08-11-badge-system-design.md`
