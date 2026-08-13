@@ -17,5 +17,12 @@ export function initDb(path: string): Database.Database {
       reminded_due_date INTEGER NOT NULL DEFAULT 0
     )
   `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS member_roles (
+      user_id TEXT PRIMARY KEY,
+      role_ids TEXT NOT NULL,
+      left_at TEXT NOT NULL
+    )
+  `);
   return db;
 }
