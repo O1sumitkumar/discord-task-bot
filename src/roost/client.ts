@@ -97,39 +97,50 @@ export function createRoostClient(db: Database, config: Config): Client {
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
   });
 
+  client.on('error', (error) => console.error('[roost] client error', error));
+
   client.once('ready', async () => {
     console.log(`[roost] Logged in as ${client.user?.tag}`);
 
-    const guild = await client.guilds.fetch(config.guildId);
-    const check = await runSelfCheck(guild, config);
-    if (!check.ok) {
-      console.error('[roost] self-check failed — handlers NOT armed. Roost will not assign roles.');
-      return;
+    try {
+      const guild = await client.guilds.fetch(config.guildId);
+      const check = await runSelfCheck(guild, config);
+      if (!check.ok) {
+        console.error('[roost] self-check failed — handlers NOT armed. Roost will not assign roles.');
+        return;
+      }
+
+      const allowlist = await resolveAllowlistIds(guild);
+
+      // Arm the live listeners before sweeping existing members. Role assignment is
+      // idempotent, so a member who joins mid-reconciliation may be processed by both
+      // paths (harmless double log) — but arming after reconcile would leave a gap
+      // where a join lands in neither the snapshot nor the live listener.
+      client.on('guildMemberAdd', (member) => {
+        onMemberJoin(member, {
+          db,
+          neighborId: config.neighborRoleId,
+          allowlist,
+          welcomeChannel: check.welcomeChannel,
+          modLogChannel: check.modLogChannel,
+        }).catch((error) => console.error('[roost] onMemberJoin failed', error));
+      });
+
+      client.on('guildMemberRemove', (member) => {
+        if (member.partial) return; // PartialGuildMember lacks role data; nothing to snapshot
+        onMemberLeave(member, {
+          db,
+          allowlist,
+          modLogChannel: check.modLogChannel,
+        }).catch((error) => console.error('[roost] onMemberLeave failed', error));
+      });
+
+      await reconcile(guild, db, config, allowlist, check.modLogChannel);
+
+      console.log('[roost] self-check passed — handlers armed');
+    } catch (error) {
+      console.error('[roost] startup failed unexpectedly — handlers NOT armed', error);
     }
-
-    const allowlist = await resolveAllowlistIds(guild);
-    await reconcile(guild, db, config, allowlist, check.modLogChannel);
-
-    client.on('guildMemberAdd', (member) => {
-      onMemberJoin(member, {
-        db,
-        neighborId: config.neighborRoleId,
-        allowlist,
-        welcomeChannel: check.welcomeChannel,
-        modLogChannel: check.modLogChannel,
-      }).catch((error) => console.error('[roost] onMemberJoin failed', error));
-    });
-
-    client.on('guildMemberRemove', (member) => {
-      if (member.partial) return; // PartialGuildMember lacks role data; nothing to snapshot
-      onMemberLeave(member, {
-        db,
-        allowlist,
-        modLogChannel: check.modLogChannel,
-      }).catch((error) => console.error('[roost] onMemberLeave failed', error));
-    });
-
-    console.log('[roost] self-check passed — handlers armed');
   });
 
   return client;
