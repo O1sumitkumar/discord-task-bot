@@ -338,6 +338,11 @@ Then:
    #introductions and the "Let in" line in #mod-log.
 8. Crew stops adding Neighbor by hand. Remove carl-bot once nothing depends on it.
 
+**Rule (Waskar, 2026-11-09): nobody adds Neighbor by hand, even when the button fails.** The click is
+the community-guidelines agreement, so the button is the only way in. If granting Neighbor fails, the
+member is told to try again later, and #mod-log says not to add the role by hand and to tell Waskar
+so the button gets fixed.
+
 ---
 
 ## Phase 2 — patch badges, decided but not built

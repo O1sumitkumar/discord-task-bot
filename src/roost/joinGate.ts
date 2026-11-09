@@ -13,6 +13,19 @@ export const JOIN_PROMPT =
   'Tap the button to agree to them and open up the rest of the server. ' +
   'It gives you the Neighbor role, which is where everyone starts.';
 
+// If granting Neighbor fails, nobody adds it by hand: the click is the
+// guidelines agreement, so the button is the only way in. Crew fixes the button.
+export const JOIN_FAILED_REPLY =
+  "Something went wrong with the button. We've been told and will fix it. Please try again later.";
+
+export function buildJoinFailedLog(memberId: string, error: unknown): string {
+  return (
+    `Join button failed for <@${memberId}>: ${error}. ` +
+    'Do not add Neighbor by hand; the button is how people agree to the guidelines. ' +
+    'Tell Waskar so the button gets fixed.'
+  );
+}
+
 export type JoinClickDecision = 'grant' | 'already-in';
 
 export function decideJoinClick(currentRoleIds: string[], neighborId: string): JoinClickDecision {
