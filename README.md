@@ -73,10 +73,16 @@ welcome, sticky roles, and mod-log. Full design and rationale:
 Implementation plan: `docs/plans/2026-08-13-roost-phase1-implementation.md`.
 
 - **Join gate.** Roost grants nothing on join. It keeps one message with an
-  **I agree, let me in** button in `#welcome`. Clicking it records the member's agreement to the community guidelines, grants `Neighbor` (baseline
-  server access — `@everyone` holds no permissions), greets the member in
-  `#introductions`, and logs it. A bot that joins with a scraped invite stays
-  at the door. Changed 2026-11-09; see the design doc.
+  **I agree, let me in** button in `#welcome`. The button opens a one-question
+  form: "What brought you to PhilaCon Valley?" A real answer (two or more
+  words, at least 10 characters) records the member's agreement to the
+  community guidelines, grants `Neighbor` (baseline server access —
+  `@everyone` holds no permissions), greets the member in `#introductions`,
+  and posts the answer to `#mod-log` for Crew. A blank or junk answer gets a
+  "tell us a little more" reply. A one-click button is easy to script; a
+  written answer is not. Nobody adds `Neighbor` by hand, even when the button
+  fails. Mod-log lines never ping anyone, because they quote member text.
+  Changed 2026-11-09; see the design doc.
 - On join, it restores any previously-held role from a fixed allowlist
   (`Builder`, `Connector`, `Voice` — never `Crew` or bot roles, which would be
   a privilege escalation). Those roles open no channels on their own.

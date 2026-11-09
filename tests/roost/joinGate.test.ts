@@ -2,7 +2,14 @@ import { describe, it, expect } from 'vitest';
 import {
   JOIN_BUTTON_ID,
   JOIN_BUTTON_LABEL,
+  JOIN_ANSWER_MAX,
+  JOIN_ANSWER_MIN,
   JOIN_FAILED_REPLY,
+  JOIN_MODAL_TITLE,
+  JOIN_QUESTION_LABEL,
+  JOIN_QUESTION_PLACEHOLDER,
+  buildLetInLog,
+  checkJoinAnswer,
   JOIN_PROMPT,
   buildJoinFailedLog,
   countWaiting,
@@ -101,5 +108,48 @@ describe('when the join button fails', () => {
   it('tells the member to try again, not that someone will let them in', () => {
     expect(JOIN_FAILED_REPLY).toMatch(/try again/i);
     expect(JOIN_FAILED_REPLY).not.toMatch(/sort it out|let you in by hand/i);
+  });
+});
+
+describe('the join question', () => {
+  it('fits Discord modal limits: 45 for title and label, 100 for placeholder', () => {
+    expect(JOIN_MODAL_TITLE.length).toBeLessThanOrEqual(45);
+    expect(JOIN_QUESTION_LABEL.length).toBeLessThanOrEqual(45);
+    expect(JOIN_QUESTION_PLACEHOLDER.length).toBeLessThanOrEqual(100);
+    expect(JOIN_ANSWER_MAX).toBeLessThanOrEqual(4000);
+  });
+
+  it('tells people about the question, and that Crew reads the answer', () => {
+    expect(JOIN_PROMPT).toMatch(/question/i);
+    expect(JOIN_PROMPT).toMatch(/crew/i);
+  });
+});
+
+describe('checkJoinAnswer', () => {
+  it('accepts a real sentence and trims it', () => {
+    expect(checkJoinAnswer('  A friend told me about PATCH 003.  ')).toEqual({
+      ok: true,
+      answer: 'A friend told me about PATCH 003.',
+    });
+  });
+
+  it('rejects an empty or very short answer', () => {
+    expect(checkJoinAnswer('').ok).toBe(false);
+    expect(checkJoinAnswer('hi').ok).toBe(false);
+    expect(checkJoinAnswer('x'.repeat(JOIN_ANSWER_MIN - 1)).ok).toBe(false);
+  });
+
+  it('rejects a single long word or one repeated character', () => {
+    expect(checkJoinAnswer('asdfasdfasdfasdf').ok).toBe(false);
+    expect(checkJoinAnswer('aaaa aaaa aaaa').ok).toBe(false);
+  });
+});
+
+describe('buildLetInLog', () => {
+  it('names the member and quotes their answer on one line', () => {
+    const log = buildLetInLog('123', 'Came to PATCH 003.\nLoved it.');
+    expect(log).toContain('<@123>');
+    expect(log).toMatch(/agreed to the community guidelines/i);
+    expect(log).toContain('> Came to PATCH 003. Loved it.');
   });
 });
