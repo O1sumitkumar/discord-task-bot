@@ -5,8 +5,12 @@ import {
   Client,
   GatewayIntentBits,
   MessageFlags,
+  ModalBuilder,
   PermissionFlagsBits,
+  TextInputBuilder,
+  TextInputStyle,
   type ButtonInteraction,
+  type ModalSubmitInteraction,
   type Guild,
   type GuildTextBasedChannel,
   type PermissionResolvable,
@@ -19,10 +23,20 @@ import { logToModLog } from './modLog';
 import { buildWelcomeMessage } from './welcome';
 import {
   JOIN_BUTTON_ID,
+  JOIN_ANSWER_ID,
+  JOIN_ANSWER_MAX,
+  JOIN_ANSWER_MIN,
   JOIN_BUTTON_LABEL,
   JOIN_FAILED_REPLY,
+  JOIN_MODAL_ID,
+  JOIN_MODAL_TITLE,
   JOIN_PROMPT,
+  JOIN_QUESTION_LABEL,
+  JOIN_QUESTION_PLACEHOLDER,
+  JOIN_RETRY_REPLY,
   buildJoinFailedLog,
+  buildLetInLog,
+  checkJoinAnswer,
   countWaiting,
   decideJoinClick,
   planJoinPrompt,
@@ -168,29 +182,63 @@ async function ensureJoinPrompt(channel: GuildTextBasedChannel, botUserId: strin
   }
 }
 
-async function handleJoinClick(
-  interaction: ButtonInteraction,
+const ALREADY_IN_REPLY = "You're already in. Welcome back.";
+
+/**
+ * Step 1: the button. Open the one-question form. Discord requires the form
+ * as the first response, within 3 seconds, so this reads roles from the
+ * interaction itself instead of fetching the member.
+ */
+async function handleJoinButton(interaction: ButtonInteraction, config: Config): Promise<void> {
+  const roleIds = interaction.inCachedGuild()
+    ? [...interaction.member.roles.cache.keys()]
+    : ((interaction.member?.roles as string[] | undefined) ?? []);
+
+  if (decideJoinClick(roleIds, config.neighborRoleId) === 'already-in') {
+    await interaction.reply({ content: ALREADY_IN_REPLY, flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  const question = new TextInputBuilder()
+    .setCustomId(JOIN_ANSWER_ID)
+    .setLabel(JOIN_QUESTION_LABEL)
+    .setPlaceholder(JOIN_QUESTION_PLACEHOLDER)
+    .setStyle(TextInputStyle.Paragraph)
+    .setMinLength(JOIN_ANSWER_MIN)
+    .setMaxLength(JOIN_ANSWER_MAX)
+    .setRequired(true);
+
+  const modal = new ModalBuilder()
+    .setCustomId(JOIN_MODAL_ID)
+    .setTitle(JOIN_MODAL_TITLE)
+    .addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(question));
+
+  await interaction.showModal(modal);
+}
+
+/** Step 2: the answer. A real answer lets the person in; junk gets a retry. */
+async function handleJoinAnswer(
+  interaction: ModalSubmitInteraction,
   config: Config,
   channels: Channels
 ): Promise<void> {
   const member = await interaction.guild!.members.fetch(interaction.user.id);
-  const decision = decideJoinClick([...member.roles.cache.keys()], config.neighborRoleId);
 
-  if (decision === 'already-in') {
-    await interaction.reply({
-      content: "You're already in. Welcome back.",
-      flags: MessageFlags.Ephemeral,
-    });
+  if (decideJoinClick([...member.roles.cache.keys()], config.neighborRoleId) === 'already-in') {
+    await interaction.reply({ content: ALREADY_IN_REPLY, flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  const check = checkJoinAnswer(interaction.fields.getTextInputValue(JOIN_ANSWER_ID));
+  if (!check.ok) {
+    await interaction.reply({ content: JOIN_RETRY_REPLY, flags: MessageFlags.Ephemeral });
     return;
   }
 
   try {
     await member.roles.add(config.neighborRoleId);
   } catch (error) {
-    await interaction.reply({
-      content: JOIN_FAILED_REPLY,
-      flags: MessageFlags.Ephemeral,
-    });
+    await interaction.reply({ content: JOIN_FAILED_REPLY, flags: MessageFlags.Ephemeral });
     await logToModLog(channels.modLogChannel, buildJoinFailedLog(member.id, error));
     return;
   }
@@ -206,7 +254,7 @@ async function handleJoinClick(
     await logToModLog(channels.modLogChannel, `Failed to greet <@${member.id}>: ${error}`);
   }
 
-  await logToModLog(channels.modLogChannel, `Let in: <@${member.id}> agreed to the community guidelines and clicked the join button.`);
+  await logToModLog(channels.modLogChannel, buildLetInLog(member.id, check.answer));
 }
 
 async function reportWaiting(
@@ -270,11 +318,16 @@ export function createRoostClient(db: Database, config: Config): Client {
       });
 
       client.on('interactionCreate', (interaction) => {
-        if (!interaction.isButton() || interaction.customId !== JOIN_BUTTON_ID) return;
         if (interaction.guildId !== config.guildId) return;
-        handleJoinClick(interaction, config, check).catch((error) =>
-          console.error('[roost] join click failed', error)
-        );
+        if (interaction.isButton() && interaction.customId === JOIN_BUTTON_ID) {
+          handleJoinButton(interaction, config).catch((error) =>
+            console.error('[roost] join button failed', error)
+          );
+        } else if (interaction.isModalSubmit() && interaction.customId === JOIN_MODAL_ID) {
+          handleJoinAnswer(interaction, config, check).catch((error) =>
+            console.error('[roost] join answer failed', error)
+          );
+        }
       });
 
       await reportWaiting(guild, config, check.modLogChannel);

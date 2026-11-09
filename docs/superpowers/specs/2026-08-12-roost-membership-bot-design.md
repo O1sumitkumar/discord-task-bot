@@ -343,6 +343,19 @@ the community-guidelines agreement, so the button is the only way in. If grantin
 member is told to try again later, and #mod-log says not to add the role by hand and to tell Waskar
 so the button gets fixed.
 
+**Change: one question after the click (2026-11-09).** A one-click button proves only that something
+pressed it, and a bot can be built to click. The button now opens a Discord form (a modal) with one
+question: "What brought you to PhilaCon Valley?" A real answer lets the person in at once and goes to
+#mod-log, where Crew can read it. Nobody waits for approval, so the no-manual-Neighbor rule holds.
+The #welcome prompt says Crew reads the answer and nobody else sees it. Answers are checked only for
+effort (10+ characters, 2+ words, not one repeated character), not for content: the goal is to stop
+scripts, not to grade people. Mod-log posts now send with no allowed mentions, so a quoted answer
+cannot ping @everyone or a role.
+
+Options considered and not taken: a minimum account age (blocks people who make an account at an
+event that night, which is common here), and phone verification (shuts out people who will not give
+Discord a phone number).
+
 ---
 
 ## Phase 2 — patch badges, decided but not built

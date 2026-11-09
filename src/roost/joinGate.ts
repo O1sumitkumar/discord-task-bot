@@ -8,13 +8,43 @@ export const JOIN_BUTTON_ID = 'roost:join';
 // person agreed and is in. The click is logged in #mod-log with a timestamp.
 export const JOIN_BUTTON_LABEL = 'I agree, let me in';
 export const JOIN_PROMPT =
-  'Before you come in, read how we treat each other above. Our full community guidelines ' +
-  'live in the Community Handbook: <https://github.com/philaconvalley/community-handbook>\n\n' +
-  'Tap the button to agree to them and open up the rest of the server. ' +
-  'It gives you the Neighbor role, which is where everyone starts.';
+  'Tap the button to agree to our community guidelines above. ' +
+  "We'll ask one quick question, what brought you here, and then you're in. " +
+  'You get the Neighbor role, which is where everyone starts.\n\n' +
+  'Crew reads your answer. Nobody else sees it.';
 
-// If granting Neighbor fails, nobody adds it by hand: the click is the
-// guidelines agreement, so the button is the only way in. Crew fixes the button.
+// The button opens a one-question form. A one-click button is easy to script;
+// a short written answer is not, and it gives Crew a real first word from each
+// new member. A real answer lets the person in at once: nobody waits on Crew,
+// and nobody adds Neighbor by hand.
+export const JOIN_MODAL_ID = 'roost:join-modal';
+export const JOIN_ANSWER_ID = 'roost:join-answer';
+export const JOIN_MODAL_TITLE = 'Before you come in';
+export const JOIN_QUESTION_LABEL = 'What brought you to PhilaCon Valley?';
+export const JOIN_QUESTION_PLACEHOLDER = 'An event, a friend, a search. A sentence or two is plenty.';
+export const JOIN_ANSWER_MIN = 10;
+export const JOIN_ANSWER_MAX = 300;
+export const JOIN_RETRY_REPLY =
+  'Tell us a little more, in a sentence or two. Tap the button to try again.';
+
+export type JoinAnswerCheck = { ok: true; answer: string } | { ok: false };
+
+export function checkJoinAnswer(raw: string): JoinAnswerCheck {
+  const answer = raw.trim();
+  if (answer.length < JOIN_ANSWER_MIN) return { ok: false };
+  if (answer.split(/\s+/).length < 2) return { ok: false };
+  if (new Set(answer.replace(/\s/g, '').toLowerCase()).size < 3) return { ok: false };
+  return { ok: true, answer };
+}
+
+export function buildLetInLog(memberId: string, answer: string): string {
+  const oneLine = answer.replace(/\s+/g, ' ').trim();
+  return (
+    `Let in: <@${memberId}> agreed to the community guidelines and answered ` +
+    `"What brought you here?"\n> ${oneLine}`
+  );
+}
+
 export const JOIN_FAILED_REPLY =
   "Something went wrong with the button. We've been told and will fix it. Please try again later.";
 
