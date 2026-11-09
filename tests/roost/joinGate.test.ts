@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   JOIN_BUTTON_ID,
   JOIN_BUTTON_LABEL,
+  JOIN_FAILED_REPLY,
   JOIN_PROMPT,
+  buildJoinFailedLog,
   countWaiting,
   decideJoinClick,
   planJoinPrompt,
@@ -78,5 +80,26 @@ describe('countWaiting', () => {
     ];
 
     expect(countWaiting(members, neighborId)).toBe(2);
+  });
+});
+
+describe('when the join button fails', () => {
+  // Neighbor comes only from the button, because the click is the guidelines
+  // agreement. A failure must never tell anyone to add the role by hand.
+  const log = buildJoinFailedLog('123', 'DiscordAPIError: Missing Permissions');
+
+  it('tells Crew not to add Neighbor by hand', () => {
+    expect(log).toMatch(/do not add neighbor by hand/i);
+    expect(log).not.toMatch(/^(?!.*do not).*add neighbor by hand/im);
+  });
+
+  it('names the member and the error so the button can be fixed', () => {
+    expect(log).toContain('<@123>');
+    expect(log).toContain('Missing Permissions');
+  });
+
+  it('tells the member to try again, not that someone will let them in', () => {
+    expect(JOIN_FAILED_REPLY).toMatch(/try again/i);
+    expect(JOIN_FAILED_REPLY).not.toMatch(/sort it out|let you in by hand/i);
   });
 });

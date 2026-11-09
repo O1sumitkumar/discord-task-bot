@@ -20,7 +20,9 @@ import { buildWelcomeMessage } from './welcome';
 import {
   JOIN_BUTTON_ID,
   JOIN_BUTTON_LABEL,
+  JOIN_FAILED_REPLY,
   JOIN_PROMPT,
+  buildJoinFailedLog,
   countWaiting,
   decideJoinClick,
   planJoinPrompt,
@@ -186,13 +188,10 @@ async function handleJoinClick(
     await member.roles.add(config.neighborRoleId);
   } catch (error) {
     await interaction.reply({
-      content: "Something went wrong letting you in. A Crew member has been told and will sort it out.",
+      content: JOIN_FAILED_REPLY,
       flags: MessageFlags.Ephemeral,
     });
-    await logToModLog(
-      channels.modLogChannel,
-      `Join button failed for <@${member.id}>: ${error}. Add Neighbor by hand.`
-    );
+    await logToModLog(channels.modLogChannel, buildJoinFailedLog(member.id, error));
     return;
   }
 
