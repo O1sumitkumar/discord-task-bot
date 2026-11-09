@@ -4,9 +4,13 @@
 // Pure decisions only — the Discord side lives in client.ts.
 
 export const JOIN_BUTTON_ID = 'roost:join';
-export const JOIN_BUTTON_LABEL = "I'm in";
+// The button is also the community-guidelines agreement: one tap means the
+// person agreed and is in. The click is logged in #mod-log with a timestamp.
+export const JOIN_BUTTON_LABEL = 'I agree, let me in';
 export const JOIN_PROMPT =
-  'Welcome in. Tap the button below to open up the rest of the server. ' +
+  'Before you come in, read how we treat each other above. Our full community guidelines ' +
+  'live in the Community Handbook: <https://github.com/philaconvalley/community-handbook>\n\n' +
+  'Tap the button to agree to them and open up the rest of the server. ' +
   'It gives you the Neighbor role, which is where everyone starts.';
 
 export type JoinClickDecision = 'grant' | 'already-in';
@@ -16,18 +20,31 @@ export function decideJoinClick(currentRoleIds: string[], neighborId: string): J
 }
 
 export interface PostedMessage {
+  id: string;
   authorId: string;
-  componentCustomIds: string[];
+  content: string;
+  buttons: { customId: string; label: string | null }[];
 }
 
+export type JoinPromptPlan = { action: 'none' } | { action: 'post' } | { action: 'edit'; messageId: string };
+
 /**
- * True when Roost's own join prompt is already in the channel. Matching on the
- * author as well as the button id means a copied message cannot stand in for it.
+ * Decide what to do with the join prompt in #welcome on startup. Roost keeps
+ * exactly one: it posts one if none exists, and edits its own when the wording
+ * or button label changed, so a copy change never stacks a second button.
+ * Matching on the author as well as the button id means a copied message
+ * cannot stand in for Roost's.
  */
-export function hasJoinPrompt(messages: PostedMessage[], botUserId: string): boolean {
-  return messages.some(
-    (message) => message.authorId === botUserId && message.componentCustomIds.includes(JOIN_BUTTON_ID)
+export function planJoinPrompt(messages: PostedMessage[], botUserId: string): JoinPromptPlan {
+  const existing = messages.find(
+    (message) =>
+      message.authorId === botUserId && message.buttons.some((button) => button.customId === JOIN_BUTTON_ID)
   );
+  if (!existing) return { action: 'post' };
+
+  const label = existing.buttons.find((button) => button.customId === JOIN_BUTTON_ID)?.label;
+  if (existing.content === JOIN_PROMPT && label === JOIN_BUTTON_LABEL) return { action: 'none' };
+  return { action: 'edit', messageId: existing.id };
 }
 
 export interface MemberSummary {

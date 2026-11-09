@@ -73,7 +73,7 @@ welcome, sticky roles, and mod-log. Full design and rationale:
 Implementation plan: `docs/plans/2026-08-13-roost-phase1-implementation.md`.
 
 - **Join gate.** Roost grants nothing on join. It keeps one message with an
-  **I'm in** button in `#welcome`; clicking it grants `Neighbor` (baseline
+  **I agree, let me in** button in `#welcome`. Clicking it records the member's agreement to the community guidelines, grants `Neighbor` (baseline
   server access — `@everyone` holds no permissions), greets the member in
   `#introductions`, and logs it. A bot that joins with a scraped invite stays
   at the door. Changed 2026-11-09; see the design doc.

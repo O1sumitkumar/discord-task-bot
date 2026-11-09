@@ -23,7 +23,7 @@ import {
   JOIN_PROMPT,
   countWaiting,
   decideJoinClick,
-  hasJoinPrompt,
+  planJoinPrompt,
 } from './joinGate';
 
 // Sticky roles restore only from this allowlist — never "whatever they had".
@@ -126,33 +126,44 @@ async function runSelfCheck(
 }
 
 /**
- * Keep exactly one join prompt in #welcome. On boot, look through recent
- * messages for Roost's own prompt and post one only if it is missing, so a
- * restart never stacks a second button on top of the first.
+ * Keep exactly one join prompt in #welcome, with the current wording. On boot,
+ * look through recent messages for Roost's own prompt: post one if it is
+ * missing, edit it if the wording changed, and otherwise leave it alone.
  */
 async function ensureJoinPrompt(channel: GuildTextBasedChannel, botUserId: string): Promise<void> {
   const recent = await channel.messages.fetch({ limit: 50 });
   const posted = recent.map((message) => ({
+    id: message.id,
     authorId: message.author.id,
-    componentCustomIds: message.components.flatMap((row) =>
+    content: message.content,
+    buttons: message.components.flatMap((row) =>
       'components' in row
-        ? row.components
-            .map((component) => ('customId' in component ? component.customId : null))
-            .filter((id): id is string => typeof id === 'string')
+        ? row.components.flatMap((component) =>
+            'customId' in component && typeof component.customId === 'string'
+              ? [{ customId: component.customId, label: 'label' in component ? (component.label ?? null) : null }]
+              : []
+          )
         : []
     ),
   }));
 
-  if (hasJoinPrompt(posted, botUserId)) return;
+  const plan = planJoinPrompt(posted, botUserId);
+  if (plan.action === 'none') return;
 
   const button = new ButtonBuilder()
     .setCustomId(JOIN_BUTTON_ID)
     .setLabel(JOIN_BUTTON_LABEL)
     .setStyle(ButtonStyle.Primary);
-  await channel.send({
+  const payload = {
     content: JOIN_PROMPT,
     components: [new ActionRowBuilder<ButtonBuilder>().addComponents(button)],
-  });
+  };
+
+  if (plan.action === 'edit') {
+    await recent.get(plan.messageId)!.edit(payload);
+  } else {
+    await channel.send(payload);
+  }
 }
 
 async function handleJoinClick(
@@ -196,7 +207,7 @@ async function handleJoinClick(
     await logToModLog(channels.modLogChannel, `Failed to greet <@${member.id}>: ${error}`);
   }
 
-  await logToModLog(channels.modLogChannel, `Let in: <@${member.id}> clicked the join button.`);
+  await logToModLog(channels.modLogChannel, `Let in: <@${member.id}> agreed to the community guidelines and clicked the join button.`);
 }
 
 async function reportWaiting(
