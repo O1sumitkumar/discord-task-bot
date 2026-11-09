@@ -3,6 +3,9 @@
 **Status:** Design approved 2026-08-12. Phase 1 built 2026-08-13
 (`docs/plans/2026-08-13-roost-phase1-implementation.md`) — not yet deployed;
 manual migration steps in "Migration" below are still outstanding.
+**Changed 2026-11-09:** Neighbor is no longer granted on join. A button in #welcome grants it. See
+"Change: the join button (2026-11-09)" below; it supersedes the join and reconciliation behavior
+described in the original sections.
 **Owner:** Waskar
 **Repo:** `philaconvalley/discord-task-bot`
 **Supersedes nothing.** Related: `philaConValley/docs/superpowers/specs/2026-08-11-badge-system-design.md`
@@ -290,27 +293,50 @@ dual-run window is the test for those.**
 
 ---
 
+## Change: the join button (2026-11-09)
+
+**Why.** Bots scraped the public invite and joined. The invite, carl-bot's autorole, and this design
+all granted Neighbor on join, so every bot that joined could see the whole server. On 2026-11-09 the
+website moved to a `/discord` redirect, every role-granting invite was deleted, carl-bot's autorole
+was removed, and Discord's native AutoMod and verification level High were turned on.
+
+**What Roost does now.**
+
+| Event | Before | Now |
+|---|---|---|
+| Member joins | Grant Neighbor, restore allowlisted roles, welcome in #welcome | Restore allowlisted roles only. Log "waiting at the #welcome button". |
+| Startup | Grant Neighbor to every member missing it | Log how many humans are waiting. Grant nothing. |
+| Button click in #welcome | (none) | Grant Neighbor, greet in #introductions, log to #mod-log |
+| Startup, #welcome | (none) | Post the join prompt once, if Roost's own prompt is not already there |
+
+**The startup sweep is the easy one to miss.** Left as designed, it would have let every waiting
+account in, bots included, the first time Roost started. Missed joins need no recovery now: the
+button stays in #welcome.
+
+Allowlisted roles still restore on rejoin. Builder, Connector, and Voice carry no channel access on
+their own, so restoring them opens nothing.
+
 ## Migration
 
 Prerequisites, all manual, all Waskar's:
 
-1. Create the **Roost** application. Enable the **Server Members Intent** in the Developer Portal.
+1. Turn on 2FA for the Discord account that owns the Roost application. The server requires 2FA for
+   moderator actions, and Manage Roles is one of them.
+2. Create the **Roost** application. Enable the **Server Members Intent** in the Developer Portal.
    Invite it with Manage Roles.
-2. Drag the `Roost` role **above `Neighbor`**. Without this, assignment fails at runtime.
-3. Add the five configuration keys to `.env` and to Railway.
+3. Drag the `Roost` role **below `Crew` and above `Neighbor`**. Never move `Perch` above `Neighbor`:
+   it holds Moderate Members.
+4. In #welcome, give the `Roost` role View Channel, Send Messages, and Read Message History. The
+   channel denies Send Messages to `@everyone`. Roost also needs to send in #introductions and
+   #mod-log.
+5. Add the six configuration keys (including `INTRODUCTIONS_CHANNEL_ID`) to `.env` and to Railway.
 
 Then:
 
-4. Deploy with carl-bot's auto-role **still on**. Both bots assign `Neighbor`; the second is a no-op.
-5. Watch `#mod-log` across real joins. Roost should log an assignment for every arrival.
-6. Switch carl-bot's auto-role off once **Roost has logged a clean assignment for 10 consecutive real
-   joins, and at least 21 days have passed.** Both conditions, not either. A vague exit criterion is
-   how a dual-run becomes permanent — name the number now, while nobody is impatient.
-7. Configure **Discord native AutoMod** to replace carl-bot's spam and link filtering.
-8. Remove carl-bot once nothing depends on it.
-
-There is no window in which a new member can be locked out, because carl-bot keeps working until
-Roost has demonstrably taken over.
+6. Deploy. The self-check names any missing permission and refuses to arm.
+7. A friend joins through `philaconvalley.com/discord` and clicks the button. Confirm the greeting in
+   #introductions and the "Let in" line in #mod-log.
+8. Crew stops adding Neighbor by hand. Remove carl-bot once nothing depends on it.
 
 ---
 

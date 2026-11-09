@@ -1,15 +1,13 @@
-import type { GuildMember, TextBasedChannel } from 'discord.js';
+import type { GuildMember } from 'discord.js';
 import type { Database } from 'better-sqlite3';
 import { planJoinActions } from './planJoinActions';
 import { getRoles } from '../repositories/memberRoleRepository';
-import { buildWelcomeMessage } from './welcome';
 import { logToModLog, type LoggableChannel } from './modLog';
 
 export interface OnMemberJoinDeps {
   db: Database;
   neighborId: string;
   allowlist: string[];
-  welcomeChannel: TextBasedChannel | null;
   modLogChannel: LoggableChannel | null;
 }
 
@@ -42,16 +40,8 @@ export async function onMemberJoin(member: GuildMember, deps: OnMemberJoinDeps):
     }
   }
 
-  try {
-    if (deps.welcomeChannel && 'send' in deps.welcomeChannel) {
-      await deps.welcomeChannel.send(buildWelcomeMessage(member.id));
-    }
-  } catch (error) {
-    await logToModLog(deps.modLogChannel, `Failed to post welcome for <@${member.id}>: ${error}`);
-  }
-
   await logToModLog(
     deps.modLogChannel,
-    `Joined: <@${member.id}> — assigned [${rolesToAdd.join(', ') || 'none'}]`
+    `Joined: <@${member.id}> — waiting at the #welcome button. Restored [${rolesToAdd.join(', ') || 'none'}]`
   );
 }

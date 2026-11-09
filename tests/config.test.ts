@@ -16,6 +16,7 @@ describe('loadConfig', () => {
         WELCOME_CHANNEL_ID: 'r',
         MOD_LOG_CHANNEL_ID: 'r',
         NEIGHBOR_ROLE_ID: 'r',
+        INTRODUCTIONS_CHANNEL_ID: 'r',
       } as NodeJS.ProcessEnv)
     ).toThrow(/DISCORD_CLIENT_ID, TASKS_CHANNEL_ID, DB_PATH/);
   });
@@ -32,6 +33,7 @@ describe('loadConfig', () => {
       WELCOME_CHANNEL_ID: 'welcome-channel',
       MOD_LOG_CHANNEL_ID: 'mod-log-channel',
       NEIGHBOR_ROLE_ID: 'neighbor-role',
+      INTRODUCTIONS_CHANNEL_ID: 'introductions-channel',
     } as NodeJS.ProcessEnv);
 
     expect(config).toEqual({
@@ -45,6 +47,7 @@ describe('loadConfig', () => {
       welcomeChannelId: 'welcome-channel',
       modLogChannelId: 'mod-log-channel',
       neighborRoleId: 'neighbor-role',
+      introductionsChannelId: 'introductions-channel',
     });
   });
 
@@ -60,6 +63,7 @@ describe('loadConfig', () => {
       WELCOME_CHANNEL_ID: 'welcome-channel',
       MOD_LOG_CHANNEL_ID: 'mod-log-channel',
       NEIGHBOR_ROLE_ID: 'neighbor-role',
+      INTRODUCTIONS_CHANNEL_ID: 'introductions-channel',
     } as NodeJS.ProcessEnv);
 
     expect(config.roostToken).toBe('roost-token');
@@ -67,5 +71,6 @@ describe('loadConfig', () => {
     expect(config.welcomeChannelId).toBe('welcome-channel');
     expect(config.modLogChannelId).toBe('mod-log-channel');
     expect(config.neighborRoleId).toBe('neighbor-role');
+    expect(config.introductionsChannelId).toBe('introductions-channel');
   });
 });

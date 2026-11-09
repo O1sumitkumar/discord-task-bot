@@ -5,7 +5,7 @@ const allowlist = ['builder', 'connector', 'voice'];
 const neighborId = 'neighbor';
 
 describe('planJoinActions', () => {
-  it('always adds Neighbor for a member who does not have it', () => {
+  it('never adds Neighbor on join — the join button in #welcome is the only way in', () => {
     const result = planJoinActions({
       storedRoleIds: [],
       currentRoleIds: [],
@@ -13,14 +13,14 @@ describe('planJoinActions', () => {
       neighborId,
     });
 
-    expect(result.rolesToAdd).toEqual(['neighbor']);
+    expect(result.rolesToAdd).toEqual([]);
   });
 
-  it('does not re-add Neighbor if the member already holds it', () => {
+  it('does not add Neighbor even when it is in the stored snapshot', () => {
     const result = planJoinActions({
-      storedRoleIds: [],
-      currentRoleIds: [neighborId],
-      allowlist,
+      storedRoleIds: [neighborId],
+      currentRoleIds: [],
+      allowlist: [...allowlist, neighborId],
       neighborId,
     });
 

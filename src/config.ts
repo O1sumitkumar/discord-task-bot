@@ -9,6 +9,7 @@ export interface Config {
   welcomeChannelId: string;
   modLogChannelId: string;
   neighborRoleId: string;
+  introductionsChannelId: string;
 }
 
 const REQUIRED_KEYS = [
@@ -22,6 +23,7 @@ const REQUIRED_KEYS = [
   'WELCOME_CHANNEL_ID',
   'MOD_LOG_CHANNEL_ID',
   'NEIGHBOR_ROLE_ID',
+  'INTRODUCTIONS_CHANNEL_ID',
 ] as const;
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -41,5 +43,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     welcomeChannelId: env.WELCOME_CHANNEL_ID!,
     modLogChannelId: env.MOD_LOG_CHANNEL_ID!,
     neighborRoleId: env.NEIGHBOR_ROLE_ID!,
+    introductionsChannelId: env.INTRODUCTIONS_CHANNEL_ID!,
   };
 }

@@ -58,7 +58,8 @@ timezone the host runs in.
 
 `src/config.ts` requires `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `GUILD_ID`,
 `TASKS_CHANNEL_ID`, `DB_PATH`, `ROOST_TOKEN`, `ROOST_CLIENT_ID`,
-`WELCOME_CHANNEL_ID`, `MOD_LOG_CHANNEL_ID`, and `NEIGHBOR_ROLE_ID`. If any
+`WELCOME_CHANNEL_ID`, `MOD_LOG_CHANNEL_ID`, `NEIGHBOR_ROLE_ID`, and
+`INTRODUCTIONS_CHANNEL_ID`. If any
 are absent it throws at startup naming the missing ones, so a misconfigured
 deploy fails immediately instead of behaving oddly later. See
 `.env.example`.
@@ -71,19 +72,21 @@ welcome, sticky roles, and mod-log. Full design and rationale:
 `docs/superpowers/specs/2026-08-12-roost-membership-bot-design.md`.
 Implementation plan: `docs/plans/2026-08-13-roost-phase1-implementation.md`.
 
-- On join, Roost grants the `Neighbor` role (baseline server access —
-  `@everyone` holds no permissions) and restores any previously-held role
-  from a fixed allowlist (`Builder`, `Connector`, `Voice` — never `Crew` or
-  bot roles, which would be a privilege escalation).
+- **Join gate.** Roost grants nothing on join. It keeps one message with an
+  **I'm in** button in `#welcome`; clicking it grants `Neighbor` (baseline
+  server access — `@everyone` holds no permissions), greets the member in
+  `#introductions`, and logs it. A bot that joins with a scraped invite stays
+  at the door. Changed 2026-11-09; see the design doc.
+- On join, it restores any previously-held role from a fixed allowlist
+  (`Builder`, `Connector`, `Voice` — never `Crew` or bot roles, which would be
+  a privilege escalation). Those roles open no channels on their own.
 - On leave, it snapshots that member's allowlisted roles to the
   `member_roles` table so they can be silently restored on rejoin.
 - On every startup it runs a self-check (Roost's role must sit above
-  `Neighbor` in the role hierarchy and hold Manage Roles, and the welcome/
-  mod-log channels must resolve) and refuses to arm its event handlers if
-  the check fails, rather than looking "logged in and healthy" while
-  silently assigning nothing. It then sweeps the full member list once to
-  fix anyone who joined while Roost was offline — Discord does not replay
-  missed gateway events.
+  `Neighbor` and hold Manage Roles, the welcome/introductions/mod-log channels
+  must resolve, and Roost must be able to post in them) and refuses to arm its
+  handlers if the check fails. It then posts the join prompt if it is missing,
+  and logs how many people are waiting. It never grants `Neighbor` on startup.
 - Every join, leave, and failure is logged to `MOD_LOG_CHANNEL_ID`.
 - **Automod is deliberately not built.** Discord's native AutoMod replaces
   carl-bot's spam/link filtering instead — see the design doc for why.
@@ -99,7 +102,7 @@ Vitest suites in `tests/` cover configuration loading (`config.test.ts`),
 date conversion (`date.test.ts`), due-date parsing (`parseDate.test.ts`),
 the task repository including the reminder query
 (`taskRepository.test.ts`), the `member_roles` repository
-(`memberRoleRepository.test.ts`), and Roost's pure decision functions and
+(`memberRoleRepository.test.ts`), and Roost's pure decision functions, including the join gate, and
 mod-log writer (`tests/roost/`). Roost's self-check, reconciliation, and
 live Discord event handling are deliberately not unit tested — the manual
 carl-bot dual-run period is the test for those (see the design doc's
@@ -143,11 +146,13 @@ for the full carl-bot dual-run cutover, not repeated here):
    **Server Members Intent** and copy the token into `ROOST_TOKEN`, and the
    Application ID into `ROOST_CLIENT_ID`.
 2. Invite it to the server with the **Manage Roles** permission.
-3. In Server Settings → Roles, drag the `Roost` role **above** `Neighbor`.
-   Roost's startup self-check refuses to arm its handlers if this isn't
-   true — role assignment fails without it.
-4. Copy channel/role IDs into `WELCOME_CHANNEL_ID`, `MOD_LOG_CHANNEL_ID`,
-   and `NEIGHBOR_ROLE_ID`.
+3. In Server Settings → Roles, drag the `Roost` role **below** `Crew` and
+   **above** `Neighbor`. Roost's startup self-check refuses to arm its
+   handlers if this isn't true — role assignment fails without it.
+4. In `#welcome`, give the `Roost` role View Channel, Send Messages, and Read
+   Message History. The channel denies Send Messages to `@everyone`.
+5. Copy channel/role IDs into `WELCOME_CHANNEL_ID`, `MOD_LOG_CHANNEL_ID`,
+   `INTRODUCTIONS_CHANNEL_ID`, and `NEIGHBOR_ROLE_ID`.
 
 ## Deploying to Railway
 
@@ -157,8 +162,10 @@ for the full carl-bot dual-run cutover, not repeated here):
 3. Add a volume mounted at `/data`.
 4. Set environment variables: `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`,
    `GUILD_ID`, `TASKS_CHANNEL_ID`, `DB_PATH=/data/tasks.db`, `ROOST_TOKEN`,
-   `ROOST_CLIENT_ID`, `WELCOME_CHANNEL_ID`, `MOD_LOG_CHANNEL_ID`, and
-   `NEIGHBOR_ROLE_ID`.
+   `ROOST_CLIENT_ID`, `WELCOME_CHANNEL_ID`, `MOD_LOG_CHANNEL_ID`,
+   `NEIGHBOR_ROLE_ID`, and `INTRODUCTIONS_CHANNEL_ID`. Set these **before** a
+   deploy that adds a new key: `loadConfig` throws on a missing key, and the
+   Task Bot shares the process, so it would go down too.
 5. Deploy. Railway runs `npm run build` then `npm run start` automatically
    (Nixpacks detects the `build` script).
 6. Run `npm run deploy-commands` once (locally, with the same `.env` values
