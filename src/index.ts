@@ -8,6 +8,7 @@ import * as eventCommand from './commands/event';
 import * as pollCommand from './commands/poll';
 import { startReminderJob } from './reminderJob';
 import { createRoostClient } from './roost/client';
+import { startRoost } from './roost/startRoost';
 
 // override: true so this repo's .env wins over anything already exported by the
 // shell. A global DISCORD_TOKEN in ~/.zshrc (Perch's) otherwise shadows it
@@ -65,4 +66,4 @@ client.on('interactionCreate', async (interaction) => {
 client.login(config.discordToken);
 
 const roostClient = createRoostClient(db, config);
-roostClient.login(config.roostToken);
+void startRoost(() => roostClient.login(config.roostToken), console.error);
