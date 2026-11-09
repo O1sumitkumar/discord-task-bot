@@ -8,11 +8,14 @@ and this bot runs its task coordination in Discord.
 
 ## How it works
 
-TypeScript on Node 20, running as one long-lived `discord.js` client.
+TypeScript on Node 20, running as one long-lived process with **two**
+`discord.js` clients sharing one SQLite handle: the Task Bot (this repo's
+original purpose) and Roost (a second Discord application — see below).
 `src/index.ts` loads configuration from the environment, opens the SQLite
 database, wires up the slash commands, and starts the reminder cron once the
-client is ready. Command errors are caught in the dispatcher and answered with
-an ephemeral reply rather than taking the process down.
+Task Bot client is ready, then boots Roost alongside it. Command errors are
+caught in the dispatcher and answered with an ephemeral reply rather than
+taking the process down.
 
 **Commands**
 
@@ -54,15 +57,56 @@ timezone the host runs in.
 **Configuration**
 
 `src/config.ts` requires `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `GUILD_ID`,
-`TASKS_CHANNEL_ID`, and `DB_PATH`. If any are absent it throws at startup
-naming the missing ones, so a misconfigured deploy fails immediately instead
-of behaving oddly later. See `.env.example`.
+`TASKS_CHANNEL_ID`, `DB_PATH`, `ROOST_TOKEN`, `ROOST_CLIENT_ID`,
+`WELCOME_CHANNEL_ID`, `MOD_LOG_CHANNEL_ID`, `NEIGHBOR_ROLE_ID`, and
+`INTRODUCTIONS_CHANNEL_ID`. If any
+are absent it throws at startup naming the missing ones, so a misconfigured
+deploy fails immediately instead of behaving oddly later. See
+`.env.example`.
+
+**Roost — membership bot**
+
+Roost is a second Discord application, run from `src/roost/` in this same
+process, that replaces the third-party carl-bot dependency for auto-role,
+welcome, sticky roles, and mod-log. Full design and rationale:
+`docs/superpowers/specs/2026-08-12-roost-membership-bot-design.md`.
+Implementation plan: `docs/plans/2026-08-13-roost-phase1-implementation.md`.
+
+- **Join gate.** Roost grants nothing on join. It keeps one message with an
+  **I'm in** button in `#welcome`; clicking it grants `Neighbor` (baseline
+  server access — `@everyone` holds no permissions), greets the member in
+  `#introductions`, and logs it. A bot that joins with a scraped invite stays
+  at the door. Changed 2026-11-09; see the design doc.
+- On join, it restores any previously-held role from a fixed allowlist
+  (`Builder`, `Connector`, `Voice` — never `Crew` or bot roles, which would be
+  a privilege escalation). Those roles open no channels on their own.
+- On leave, it snapshots that member's allowlisted roles to the
+  `member_roles` table so they can be silently restored on rejoin.
+- On every startup it runs a self-check (Roost's role must sit above
+  `Neighbor` and hold Manage Roles, the welcome/introductions/mod-log channels
+  must resolve, and Roost must be able to post in them) and refuses to arm its
+  handlers if the check fails. It then posts the join prompt if it is missing,
+  and logs how many people are waiting. It never grants `Neighbor` on startup.
+- Every join, leave, and failure is logged to `MOD_LOG_CHANNEL_ID`.
+- **Automod is deliberately not built.** Discord's native AutoMod replaces
+  carl-bot's spam/link filtering instead — see the design doc for why.
+
+Setting up the Roost Discord application (creating it, enabling the Server
+Members intent, positioning its role above `Neighbor`, and the carl-bot
+dual-run cutover) is a manual, one-time process — see "Migration" in the
+design doc.
 
 **Tests**
 
 Vitest suites in `tests/` cover configuration loading (`config.test.ts`),
-date conversion (`date.test.ts`), due-date parsing (`parseDate.test.ts`), and
-the task repository including the reminder query (`taskRepository.test.ts`).
+date conversion (`date.test.ts`), due-date parsing (`parseDate.test.ts`),
+the task repository including the reminder query
+(`taskRepository.test.ts`), the `member_roles` repository
+(`memberRoleRepository.test.ts`), and Roost's pure decision functions, including the join gate, and
+mod-log writer (`tests/roost/`). Roost's self-check, reconciliation, and
+live Discord event handling are deliberately not unit tested — the manual
+carl-bot dual-run period is the test for those (see the design doc's
+"Testing" section).
 
 ## Local development
 
@@ -94,6 +138,22 @@ the task repository including the reminder query (`taskRepository.test.ts`).
 8. Register slash commands: `npm run deploy-commands`. Re-run this any time
    command definitions change.
 
+**Roost setup** (separate Discord application — see "Migration" in the
+design doc at `docs/superpowers/specs/2026-08-12-roost-membership-bot-design.md`
+for the full carl-bot dual-run cutover, not repeated here):
+
+1. Create a second application, **Roost**. Under **Bot**, enable the
+   **Server Members Intent** and copy the token into `ROOST_TOKEN`, and the
+   Application ID into `ROOST_CLIENT_ID`.
+2. Invite it to the server with the **Manage Roles** permission.
+3. In Server Settings → Roles, drag the `Roost` role **below** `Crew` and
+   **above** `Neighbor`. Roost's startup self-check refuses to arm its
+   handlers if this isn't true — role assignment fails without it.
+4. In `#welcome`, give the `Roost` role View Channel, Send Messages, and Read
+   Message History. The channel denies Send Messages to `@everyone`.
+5. Copy channel/role IDs into `WELCOME_CHANNEL_ID`, `MOD_LOG_CHANNEL_ID`,
+   `INTRODUCTIONS_CHANNEL_ID`, and `NEIGHBOR_ROLE_ID`.
+
 ## Deploying to Railway
 
 1. Push this repo to GitHub under the `philaconvalley` org.
@@ -101,7 +161,11 @@ the task repository including the reminder query (`taskRepository.test.ts`).
    plan project).
 3. Add a volume mounted at `/data`.
 4. Set environment variables: `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`,
-   `GUILD_ID`, `TASKS_CHANNEL_ID`, and `DB_PATH=/data/tasks.db`.
+   `GUILD_ID`, `TASKS_CHANNEL_ID`, `DB_PATH=/data/tasks.db`, `ROOST_TOKEN`,
+   `ROOST_CLIENT_ID`, `WELCOME_CHANNEL_ID`, `MOD_LOG_CHANNEL_ID`,
+   `NEIGHBOR_ROLE_ID`, and `INTRODUCTIONS_CHANNEL_ID`. Set these **before** a
+   deploy that adds a new key: `loadConfig` throws on a missing key, and the
+   Task Bot shares the process, so it would go down too.
 5. Deploy. Railway runs `npm run build` then `npm run start` automatically
    (Nixpacks detects the `build` script).
 6. Run `npm run deploy-commands` once (locally, with the same `.env` values
