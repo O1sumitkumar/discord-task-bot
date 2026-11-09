@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   JOIN_BUTTON_ID,
+  JOIN_BUTTON_LABEL,
+  JOIN_PROMPT,
   countWaiting,
   decideJoinClick,
-  hasJoinPrompt,
+  planJoinPrompt,
 } from '../../src/roost/joinGate';
 
 const neighborId = 'neighbor';
@@ -18,23 +20,51 @@ describe('decideJoinClick', () => {
   });
 });
 
-describe('hasJoinPrompt', () => {
+describe('planJoinPrompt', () => {
   const botId = 'roost';
+  const current = {
+    id: 'm1',
+    authorId: botId,
+    content: JOIN_PROMPT,
+    buttons: [{ customId: JOIN_BUTTON_ID, label: JOIN_BUTTON_LABEL }],
+  };
 
-  it('finds the join prompt Roost already posted', () => {
-    expect(hasJoinPrompt([{ authorId: botId, componentCustomIds: [JOIN_BUTTON_ID] }], botId)).toBe(
-      true
-    );
+  it('does nothing when the current prompt is already posted', () => {
+    expect(planJoinPrompt([current], botId)).toEqual({ action: 'none' });
+  });
+
+  it('posts a prompt when none exists', () => {
+    expect(planJoinPrompt([], botId)).toEqual({ action: 'post' });
+  });
+
+  it('edits the existing prompt when its wording is out of date', () => {
+    const old = { ...current, content: 'Welcome in. Tap the button below.' };
+    expect(planJoinPrompt([old], botId)).toEqual({ action: 'edit', messageId: 'm1' });
+  });
+
+  it('edits the existing prompt when only the button label changed', () => {
+    const old = { ...current, buttons: [{ customId: JOIN_BUTTON_ID, label: "I'm in" }] };
+    expect(planJoinPrompt([old], botId)).toEqual({ action: 'edit', messageId: 'm1' });
   });
 
   it('ignores a message with the same button id from someone else', () => {
-    expect(
-      hasJoinPrompt([{ authorId: 'impostor', componentCustomIds: [JOIN_BUTTON_ID] }], botId)
-    ).toBe(false);
+    expect(planJoinPrompt([{ ...current, authorId: 'impostor' }], botId)).toEqual({ action: 'post' });
   });
 
   it('ignores Roost messages that carry no join button', () => {
-    expect(hasJoinPrompt([{ authorId: botId, componentCustomIds: [] }], botId)).toBe(false);
+    expect(planJoinPrompt([{ ...current, buttons: [] }], botId)).toEqual({ action: 'post' });
+  });
+});
+
+describe('the join prompt', () => {
+  it('asks people to agree to the community guidelines', () => {
+    expect(JOIN_PROMPT).toMatch(/guidelines/i);
+    expect(JOIN_BUTTON_LABEL).toMatch(/agree/i);
+  });
+
+  it('fits Discord limits: 2000 characters for content, 80 for a button label', () => {
+    expect(JOIN_PROMPT.length).toBeLessThanOrEqual(2000);
+    expect(JOIN_BUTTON_LABEL.length).toBeLessThanOrEqual(80);
   });
 });
 

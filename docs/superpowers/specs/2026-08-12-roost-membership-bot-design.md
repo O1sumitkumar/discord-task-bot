@@ -306,7 +306,7 @@ was removed, and Discord's native AutoMod and verification level High were turne
 |---|---|---|
 | Member joins | Grant Neighbor, restore allowlisted roles, welcome in #welcome | Restore allowlisted roles only. Log "waiting at the #welcome button". |
 | Startup | Grant Neighbor to every member missing it | Log how many humans are waiting. Grant nothing. |
-| Button click in #welcome | (none) | Grant Neighbor, greet in #introductions, log to #mod-log |
+| Button click in #welcome | (none) | Record agreement to the community guidelines, grant Neighbor, greet in #introductions, log to #mod-log |
 | Startup, #welcome | (none) | Post the join prompt once, if Roost's own prompt is not already there |
 
 **The startup sweep is the easy one to miss.** Left as designed, it would have let every waiting
