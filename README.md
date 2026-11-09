@@ -214,3 +214,10 @@ an open range like `">=20"` — an open range lets Nixpacks pick the newest
 available Node instead of a version with a working prebuild. Don't loosen
 this pin without confirming the target Node version has a `better-sqlite3`
 prebuild for it.
+
+The prebuild is also downloaded from GitHub Releases at build time, so a
+GitHub outage causes the same failure even on Node 20 (2026-11-09: two
+deploys of PR #9 failed on a 504). `nixpacks.toml` now adds `python3`,
+`gcc`, and `gnumake` to the build image, so npm can compile from source when
+the download fails. The build is slower in that case, but it succeeds. Keep
+`nixpacks.toml` unless the project moves off `better-sqlite3`.

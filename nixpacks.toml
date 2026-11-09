@@ -1,0 +1,11 @@
+# Build tools for the better-sqlite3 fallback.
+#
+# better-sqlite3 downloads a prebuilt binary from GitHub Releases during
+# `npm ci`. If that download fails (GitHub outage, 5xx), npm falls back to
+# compiling it from source with node-gyp, which needs Python, make, and a C++
+# compiler. The default Nixpacks image has none of them, so a GitHub outage
+# during a merge used to fail the deploy (2026-11-09, PR #9: two failed builds).
+#
+# "..." keeps the Nixpacks defaults (nodejs_20, npm) and adds the build tools.
+[phases.setup]
+nixPkgs = ["...", "python3", "gcc", "gnumake"]
