@@ -2,9 +2,16 @@
 
 ![CI](https://github.com/philaconvalley/discord-task-bot/actions/workflows/ci.yml/badge.svg)
 
-Discord bot for PhilaCon Valley task assignments, due-date reminders, and
-Scheduled Event creation. PhilaCon Valley is a Philadelphia tech community,
-and this bot runs its task coordination in Discord.
+Two Discord bots for PhilaCon Valley, a Philadelphia tech community, running
+in one process:
+
+- **Task Bot:** task assignments, due-date reminders, community polls, and
+  Scheduled Event creation.
+- **Roost:** the server's join gate. New members read the guidelines, tap a
+  button, and answer one question before they get in.
+
+**Want to help?** Read [`CONTRIBUTING.md`](CONTRIBUTING.md). It covers setting
+up your own test server, so you never need access to the real one.
 
 ## How it works
 
@@ -26,6 +33,11 @@ taking the process down.
 - `/event add` (`src/commands/event.ts`) — create a Discord Scheduled Event
   from a name, start time, end time, and location, and reply with the event
   URL. Requires the bot's `Manage Events` permission.
+- `/poll` (`src/commands/poll.ts`) — post a native Discord poll in the current
+  channel: a question, 2 to 10 answers (`option1` and `option2` required),
+  `multiselect` (default yes), and `hours` (default 168, at most 768). Each
+  answer is its own parameter, so punctuation in an answer never breaks
+  anything. Validation lives in `src/lib/poll.ts` (`buildPoll`), with tests.
 
 Command definitions are registered to the guild by `npm run deploy-commands`
 (`src/deploy-commands.ts`), separate from running the bot.
@@ -67,8 +79,9 @@ deploy fails immediately instead of behaving oddly later. See
 **Roost — membership bot**
 
 Roost is a second Discord application, run from `src/roost/` in this same
-process, that replaces the third-party carl-bot dependency for auto-role,
-welcome, sticky roles, and mod-log. Full design and rationale:
+process. It runs the join gate, the welcome greeting, sticky roles, and the
+mod-log. It replaced carl-bot, a third-party bot, which was removed from the
+server on 2026-11-09. Full design and rationale:
 `docs/superpowers/specs/2026-08-12-roost-membership-bot-design.md`.
 Implementation plan: `docs/plans/2026-08-13-roost-phase1-implementation.md`.
 
@@ -94,13 +107,12 @@ Implementation plan: `docs/plans/2026-08-13-roost-phase1-implementation.md`.
   handlers if the check fails. It then posts the join prompt if it is missing,
   and logs how many people are waiting. It never grants `Neighbor` on startup.
 - Every join, leave, and failure is logged to `MOD_LOG_CHANNEL_ID`.
-- **Automod is deliberately not built.** Discord's native AutoMod replaces
-  carl-bot's spam/link filtering instead — see the design doc for why.
+- **Automod is deliberately not built.** Discord's native AutoMod handles
+  spam and link filtering instead — see the design doc for why.
 
 Setting up the Roost Discord application (creating it, enabling the Server
-Members intent, positioning its role above `Neighbor`, and the carl-bot
-dual-run cutover) is a manual, one-time process — see "Migration" in the
-design doc.
+Members intent, and positioning its role above `Neighbor`) is a manual,
+one-time process. See "Roost setup" below, and "Migration" in the design doc.
 
 **Tests**
 
@@ -109,10 +121,12 @@ date conversion (`date.test.ts`), due-date parsing (`parseDate.test.ts`),
 the task repository including the reminder query
 (`taskRepository.test.ts`), the `member_roles` repository
 (`memberRoleRepository.test.ts`), and Roost's pure decision functions, including the join gate, and
-mod-log writer (`tests/roost/`). Roost's self-check, reconciliation, and
-live Discord event handling are deliberately not unit tested — the manual
-carl-bot dual-run period is the test for those (see the design doc's
-"Testing" section).
+mod-log writer (`tests/roost/`). Roost's self-check and its live Discord
+event handling are not unit tested, because they need a real Discord
+connection. Test those by hand on your own test server (see
+`CONTRIBUTING.md`). The rule that keeps this small: put decisions and text in
+pure functions (like `src/roost/joinGate.ts`) and test those; keep the code
+that talks to Discord (`src/roost/client.ts`) thin.
 
 ## Local development
 
@@ -144,9 +158,8 @@ carl-bot dual-run period is the test for those (see the design doc's
 8. Register slash commands: `npm run deploy-commands`. Re-run this any time
    command definitions change.
 
-**Roost setup** (separate Discord application — see "Migration" in the
-design doc at `docs/superpowers/specs/2026-08-12-roost-membership-bot-design.md`
-for the full carl-bot dual-run cutover, not repeated here):
+**Roost setup** (a separate Discord application; more detail in "Migration"
+in `docs/superpowers/specs/2026-08-12-roost-membership-bot-design.md`):
 
 1. Create a second application, **Roost**. Under **Bot**, enable the
    **Server Members Intent** and copy the token into `ROOST_TOKEN`, and the
@@ -155,8 +168,10 @@ for the full carl-bot dual-run cutover, not repeated here):
 3. In Server Settings → Roles, drag the `Roost` role **below** `Crew` and
    **above** `Neighbor`. Roost's startup self-check refuses to arm its
    handlers if this isn't true — role assignment fails without it.
-4. In `#welcome`, give the `Roost` role View Channel, Send Messages, and Read
-   Message History. The channel denies Send Messages to `@everyone`.
+4. Give the `Roost` role channel permissions: View Channel, Send Messages,
+   and Read Message History in `#welcome` (the channel denies Send Messages
+   to `@everyone`), and View Channel and Send Messages in `#introductions`
+   and `#mod-log`. The startup self-check names any that are missing.
 5. Copy channel/role IDs into `WELCOME_CHANNEL_ID`, `MOD_LOG_CHANNEL_ID`,
    `INTRODUCTIONS_CHANNEL_ID`, and `NEIGHBOR_ROLE_ID`.
 
