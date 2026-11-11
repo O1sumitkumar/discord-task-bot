@@ -285,7 +285,7 @@ export function createRoostClient(db: Database, config: Config): Client {
 
   client.on('error', (error) => console.error('[roost] client error', error));
 
-  client.once('ready', async () => {
+  client.once('clientReady', async () => {
     console.log(`[roost] Logged in as ${client.user?.tag}`);
 
     try {
